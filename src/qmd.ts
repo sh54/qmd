@@ -908,6 +908,101 @@ function getDocument(filename: string, fromLine?: number, maxLines?: number, lin
   closeDb();
 }
 
+// Resolve a virtual path to its filesystem path
+function resolvePath(virtualPath: string): void {
+  const db = getDb();
+
+  // Handle docid lookup
+  let inputPath = virtualPath;
+  if (isDocid(inputPath)) {
+    const docidMatch = findDocumentByDocid(db, inputPath);
+    if (docidMatch) {
+      inputPath = docidMatch.filepath;
+    } else {
+      console.error(`Document not found: ${virtualPath}`);
+      closeDb();
+      process.exit(1);
+    }
+  }
+
+  // Ensure it's a virtual path
+  if (!isVirtualPath(inputPath)) {
+    // Try to interpret as collection/path format
+    if (inputPath.includes('/') && !inputPath.startsWith('/')) {
+      inputPath = `qmd://${inputPath}`;
+    } else {
+      console.error(`Not a virtual path: ${virtualPath}`);
+      console.error(`Usage: qmd path qmd://collection/path/to/file.md`);
+      closeDb();
+      process.exit(1);
+    }
+  }
+
+  const fsPath = resolveVirtualPath(db, inputPath);
+  if (!fsPath) {
+    console.error(`Could not resolve path: ${virtualPath}`);
+    closeDb();
+    process.exit(1);
+  }
+
+  console.log(fsPath);
+  closeDb();
+}
+
+// Resolve multiple virtual paths to filesystem paths
+function resolvePaths(pattern: string): void {
+  const db = getDb();
+
+  // Check if it's a comma-separated list or a glob pattern
+  const isCommaSeparated = pattern.includes(',') && !pattern.includes('*') && !pattern.includes('?');
+
+  let virtualPaths: string[] = [];
+
+  if (isCommaSeparated) {
+    // Parse comma-separated list
+    virtualPaths = pattern.split(',').map(p => p.trim()).filter(p => p.length > 0);
+  } else {
+    // Glob pattern - match against indexed files
+    const matches = matchFilesByGlob(db, pattern);
+    virtualPaths = matches.map(m => m.filepath);
+  }
+
+  if (virtualPaths.length === 0) {
+    console.error(`No matches found for: ${pattern}`);
+    closeDb();
+    process.exit(1);
+  }
+
+  for (const vp of virtualPaths) {
+    let inputPath = vp;
+
+    // Handle docid
+    if (isDocid(inputPath)) {
+      const docidMatch = findDocumentByDocid(db, inputPath);
+      if (docidMatch) {
+        inputPath = docidMatch.filepath;
+      } else {
+        console.error(`# Not found: ${vp}`);
+        continue;
+      }
+    }
+
+    // Normalize to virtual path format
+    if (!isVirtualPath(inputPath) && inputPath.includes('/') && !inputPath.startsWith('/')) {
+      inputPath = `qmd://${inputPath}`;
+    }
+
+    const fsPath = resolveVirtualPath(db, inputPath);
+    if (fsPath) {
+      console.log(`${inputPath}\t${fsPath}`);
+    } else {
+      console.error(`# Could not resolve: ${vp}`);
+    }
+  }
+
+  closeDb();
+}
+
 // Multi-get: fetch multiple documents by glob pattern or comma-separated list
 function multiGet(pattern: string, maxLines?: number, maxBytes: number = DEFAULT_MULTI_GET_MAX_BYTES, format: OutputFormat = "cli"): void {
   const db = getDb();
@@ -2473,6 +2568,8 @@ function showHelp(): void {
   console.log("  qmd vsearch <query>           - Vector similarity only");
   console.log("  qmd get <file>[:line] [-l N]  - Show a single document, optional line slice");
   console.log("  qmd multi-get <pattern>       - Batch fetch via glob or comma-separated list");
+  console.log("  qmd path <virtual-path>       - Resolve qmd:// path to filesystem path");
+  console.log("  qmd paths <pattern>           - Resolve multiple paths (glob or comma-separated)");
   console.log("  qmd mcp                       - Start the MCP server (stdio transport for AI agents)");
   console.log("");
   console.log("Collections & context:");
@@ -2686,6 +2783,28 @@ if (isMain) {
       const maxLinesMulti = cli.values.l ? parseInt(cli.values.l as string, 10) : undefined;
       const maxBytes = cli.values["max-bytes"] ? parseInt(cli.values["max-bytes"] as string, 10) : DEFAULT_MULTI_GET_MAX_BYTES;
       multiGet(cli.args[0], maxLinesMulti, maxBytes, cli.opts.format);
+      break;
+    }
+
+    case "path": {
+      if (!cli.args[0]) {
+        console.error("Usage: qmd path <virtual-path>");
+        console.error("  Resolve a qmd:// path to its filesystem path");
+        console.error("  Example: qmd path qmd://notes/readme.md");
+        process.exit(1);
+      }
+      resolvePath(cli.args[0]);
+      break;
+    }
+
+    case "paths": {
+      if (!cli.args[0]) {
+        console.error("Usage: qmd paths <pattern>");
+        console.error("  Resolve multiple qmd:// paths to filesystem paths");
+        console.error("  pattern: glob (e.g., 'notes/*.md') or comma-separated list");
+        process.exit(1);
+      }
+      resolvePaths(cli.args[0]);
       break;
     }
 

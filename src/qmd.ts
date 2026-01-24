@@ -56,7 +56,7 @@ import {
   vacuumDatabase,
   getCollectionsWithoutContext,
   getTopLevelPathsWithoutContext,
-  handelize,
+  encodeQmdPath,
   hybridQuery,
   vectorSearchQuery,
   structuredSearch,
@@ -614,7 +614,7 @@ async function contextAdd(pathArg: string | undefined, contextText: string): Pro
     yamlAddContext(parsed.collectionName, parsed.path, contextText);
 
     const displayPath = parsed.path
-      ? `qmd://${parsed.collectionName}/${parsed.path}`
+      ? `qmd://${parsed.collectionName}/${encodeQmdPath(parsed.path)}`
       : `qmd://${parsed.collectionName}/ (collection root)`;
     console.log(`${c.green}✓${c.reset} Added context for: ${displayPath}`);
     console.log(`${c.dim}Context: ${contextText}${c.reset}`);
@@ -632,7 +632,7 @@ async function contextAdd(pathArg: string | undefined, contextText: string): Pro
 
   yamlAddContext(detected.collectionName, detected.relativePath, contextText);
 
-  const displayPath = detected.relativePath ? `qmd://${detected.collectionName}/${detected.relativePath}` : `qmd://${detected.collectionName}/`;
+  const displayPath = detected.relativePath ? `qmd://${detected.collectionName}/${encodeQmdPath(detected.relativePath)}` : `qmd://${detected.collectionName}/`;
   console.log(`${c.green}✓${c.reset} Added context for: ${displayPath}`);
   console.log(`${c.dim}Context: ${contextText}${c.reset}`);
   closeDb();
@@ -658,7 +658,7 @@ function contextList(): void {
       lastCollection = ctx.collection;
     }
 
-    const displayPath = ctx.path ? `  ${ctx.path}` : '  / (root)';
+    const displayPath = ctx.path ? `  ${encodeQmdPath(ctx.path)}` : '  / (root)';
     console.log(`${displayPath}`);
     console.log(`    ${c.dim}${ctx.context}${c.reset}`);
   }
@@ -721,11 +721,11 @@ function contextRemove(pathArg: string): void {
   const success = yamlRemoveContext(detected.collectionName, detected.relativePath);
 
   if (!success) {
-    console.error(`${c.yellow}No context found for: qmd://${detected.collectionName}/${detected.relativePath}${c.reset}`);
+    console.error(`${c.yellow}No context found for: qmd://${detected.collectionName}/${encodeQmdPath(detected.relativePath)}${c.reset}`);
     process.exit(1);
   }
 
-  console.log(`${c.green}✓${c.reset} Removed context for: qmd://${detected.collectionName}/${detected.relativePath}`);
+  console.log(`${c.green}✓${c.reset} Removed context for: qmd://${detected.collectionName}/${encodeQmdPath(detected.relativePath)}`);
 }
 
 function getDocument(filename: string, fromLine?: number, maxLines?: number, lineNumbers?: boolean): void {
@@ -1240,7 +1240,7 @@ function listFiles(pathArg?: string): void {
 
   if (files.length === 0) {
     if (pathPrefix) {
-      console.log(`No files found under qmd://${collectionName}/${pathPrefix}`);
+      console.log(`No files found under qmd://${collectionName}/${encodeQmdPath(pathPrefix)}`);
     } else {
       console.log(`No files found in collection: ${collectionName}`);
     }
@@ -1258,7 +1258,7 @@ function listFiles(pathArg?: string): void {
     const timeStr = formatLsTime(date);
 
     // Dim the qmd:// prefix, highlight the filename
-    console.log(`${sizeStr}  ${timeStr}  ${c.dim}qmd://${collectionName}/${c.reset}${c.cyan}${file.path}${c.reset}`);
+    console.log(`${sizeStr}  ${timeStr}  ${c.dim}qmd://${collectionName}/${c.reset}${c.cyan}${encodeQmdPath(file.path)}${c.reset}`);
   }
 
   closeDb();
@@ -1451,7 +1451,7 @@ async function indexFiles(pwd?: string, globPattern: string = DEFAULT_GLOB, coll
 
   for (const relativeFile of files) {
     const filepath = getRealPath(resolve(resolvedPwd, relativeFile));
-    const path = handelize(relativeFile); // Normalize path for token-friendliness
+    const path = relativeFile;
     seenPaths.add(path);
 
     let content: string;

@@ -510,15 +510,31 @@ export function parseVirtualPath(virtualPath: string): VirtualPath | null {
   if (!match?.[1]) return null;
   return {
     collectionName: match[1],
-    path: match[2] ?? '',  // Empty string for collection root
+    path: decodeQmdPath(match[2] ?? ''),  // Decode URL-encoded path
   };
 }
 
 /**
  * Build a virtual path from collection name and relative path.
+ * The path is URL-encoded for valid URI output.
  */
 export function buildVirtualPath(collectionName: string, path: string): string {
-  return `qmd://${collectionName}/${path}`;
+  return `qmd://${collectionName}/${encodeQmdPath(path)}`;
+}
+
+/**
+ * Encode a path for use in qmd:// URIs.
+ * Encodes special characters but preserves forward slashes for readability.
+ */
+export function encodeQmdPath(path: string): string {
+  return path.split('/').map(segment => encodeURIComponent(segment)).join('/');
+}
+
+/**
+ * Decode a path from a qmd:// URI back to the original filesystem path.
+ */
+export function decodeQmdPath(path: string): string {
+  return path.split('/').map(segment => decodeURIComponent(segment)).join('/');
 }
 
 /**

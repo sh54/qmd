@@ -56,6 +56,15 @@
             pkgs.stdenv.cc.cc.lib  # libstdc++ for node-llama-cpp
           ];
 
+          # node-llama-cpp bundles CUDA, Vulkan, and musl variants we don't need
+          autoPatchelfIgnoreMissingDeps = [
+            "libcudart.so.*"
+            "libcublas.so.*"
+            "libcuda.so.*"
+            "libvulkan.so.*"
+            "libc.musl-*"
+          ];
+
           bunDeps = pkgs.bun2nix.fetchBunDeps {
             bunNix = ./bun.nix;
           };

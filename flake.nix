@@ -46,9 +46,15 @@
             pkgs.python3  # needed by node-gyp to compile better-sqlite3
           ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
             pkgs.darwin.cctools  # provides libtool needed by node-gyp on macOS
+          ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+            pkgs.autoPatchelfHook
           ];
 
-          buildInputs = [ pkgs.sqlite ];
+          buildInputs = [
+            pkgs.sqlite
+          ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+            pkgs.stdenv.cc.cc.lib  # libstdc++ for node-llama-cpp
+          ];
 
           bunDeps = pkgs.bun2nix.fetchBunDeps {
             bunNix = ./bun.nix;

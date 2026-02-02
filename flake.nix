@@ -1,15 +1,31 @@
 {
   description = "QMD - Quick Markdown Search";
 
+  nixConfig = {
+    extra-substituters = [
+      "https://cache.nixos.org"
+      "https://nix-community.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    bun2nix.url = "github:nix-community/bun2nix";
+    bun2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, bun2nix }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ bun2nix.overlays.default ];
+        };
 
         # SQLite with loadable extension support for sqlite-vec
         sqliteWithExtensions = pkgs.sqlite.overrideAttrs (old: {
@@ -25,7 +41,7 @@
           src = ./.;
 
           nativeBuildInputs = [
-            pkgs.bun
+            pkgs.bun2nix.hook
             pkgs.makeWrapper
             pkgs.python3  # needed by node-gyp to compile better-sqlite3
           ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
@@ -34,18 +50,17 @@
 
           buildInputs = [ pkgs.sqlite ];
 
-          buildPhase = ''
-            export HOME=$(mktemp -d)
-            bun install --frozen-lockfile
-          '';
+          bunDeps = pkgs.bun2nix.fetchBunDeps {
+            bunNix = ./bun.nix;
+          };
+
+          dontBuild = true;
 
           installPhase = ''
             mkdir -p $out/lib/qmd
             mkdir -p $out/bin
 
-            cp -r node_modules $out/lib/qmd/
-            cp -r src $out/lib/qmd/
-            cp package.json $out/lib/qmd/
+            cp -r . $out/lib/qmd/
 
             makeWrapper ${pkgs.bun}/bin/bun $out/bin/qmd \
               --add-flags "$out/lib/qmd/src/qmd.ts" \
@@ -75,6 +90,7 @@
         devShells.default = pkgs.mkShell {
           buildInputs = [
             pkgs.bun
+            pkgs.bun2nix
             sqliteWithExtensions
           ];
 

@@ -71,7 +71,10 @@
             makeWrapper ${pkgs.bun}/bin/bun $out/bin/qmd \
               --add-flags "$out/lib/qmd/src/qmd.ts" \
               --set DYLD_LIBRARY_PATH "${pkgs.sqlite.out}/lib" \
-              --set LD_LIBRARY_PATH "${pkgs.sqlite.out}/lib"
+              --set LD_LIBRARY_PATH "${pkgs.lib.makeLibraryPath [
+                pkgs.sqlite.out
+                pkgs.stdenv.cc.cc.lib
+              ]}${pkgs.lib.optionalString pkgs.stdenv.isLinux ":${pkgs.glibc}/lib"}"
           '';
 
           meta = with pkgs.lib; {

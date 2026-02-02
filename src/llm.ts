@@ -208,8 +208,8 @@ export const DEFAULT_EMBED_MODEL_URI = DEFAULT_EMBED_MODEL;
 export const DEFAULT_RERANK_MODEL_URI = DEFAULT_RERANK_MODEL;
 export const DEFAULT_GENERATE_MODEL_URI = DEFAULT_GENERATE_MODEL;
 
-// Local model cache directory
-const MODEL_CACHE_DIR = join(homedir(), ".cache", "qmd", "models");
+// Local model cache directory (respects XDG_CACHE_HOME, same as index DB)
+const MODEL_CACHE_DIR = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "qmd", "models");
 export const DEFAULT_MODEL_CACHE_DIR = MODEL_CACHE_DIR;
 
 export type PullResult = {

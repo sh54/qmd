@@ -76,6 +76,13 @@
             chmod -R u+w "$BUN_INSTALL_CACHE_DIR"
           '';
 
+          # On Linux, bun's isolated linker requires .npm manifest files that
+          # bun2nix doesn't generate, causing FailedToOpenSocket hangs in the
+          # Nix sandbox (bun2nix#77). Hoisted linker resolves from cache directly.
+          bunInstallFlags = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            "--linker=hoisted"
+          ];
+
           dontBuild = true;
 
           installPhase = ''

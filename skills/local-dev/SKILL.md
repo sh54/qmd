@@ -57,7 +57,7 @@ ndev bun test --preload ./src/test-preload.ts test/
 If upstream changed `package.json` / `bun.lock`, regenerate `bun.nix`:
 
 ```bash
-ndev bun2nix
+ndev bun2nix -o bun.nix
 git add bun.nix bun.lock
 ```
 
@@ -88,9 +88,38 @@ postBunSetInstallCacheDirPhase = ''
 `bun.nix`:
 
 ```bash
-ndev bun2nix
+ndev bun2nix -o bun.nix
 git add bun.nix bun.lock
 ```
+
+## Known issue: Linux sandbox ConnectionRefused / FailedToOpenSocket
+
+On Linux, `nix build` fails with many errors like:
+
+```
+error: ConnectionRefused downloading tarball vitest@3.2.4
+error: FailedToOpenSocket downloading tarball better-sqlite3@11.10.0
+```
+
+**Diagnose: check if `bun.nix` is in sync with `bun.lock`.** This is
+the #1 cause. If packages in `bun.lock` aren't in `bun.nix`, the cache
+won't have them and bun tries (and fails) to download in the sandbox.
+
+```bash
+# Quick check: pick a package from the error and grep bun.nix
+grep "vitest@3.2" bun.nix  # empty = out of sync
+```
+
+**Fix:** Regenerate `bun.nix`:
+
+```bash
+ndev bun2nix -o bun.nix
+```
+
+**If bun.nix IS in sync**, the issue is bun2nix#77 — the isolated
+linker needs `.npm` manifest files that bun2nix doesn't generate.
+The `--linker=hoisted` flag in `flake.nix` works around this. Verify
+it's set in `bunInstallFlags`.
 
 ## Debugging builds
 

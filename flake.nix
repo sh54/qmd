@@ -69,6 +69,13 @@
             bunNix = ./bun.nix;
           };
 
+          # bun2nix copies bunDeps from the read-only Nix store into a
+          # writable tmpdir, but cp -r preserves store permissions.
+          # bun's rename() into the cache then fails with EACCES and hangs.
+          postBunSetInstallCacheDirPhase = ''
+            chmod -R u+w "$BUN_INSTALL_CACHE_DIR"
+          '';
+
           dontBuild = true;
 
           installPhase = ''
